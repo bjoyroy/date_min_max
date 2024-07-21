@@ -1,0 +1,20 @@
+{
+    "name": "Date Max Min",
+    "namespace": "UAB\\DateMaxMinModule",
+    "description": "This module introduces two action tag @DATE-MIN and @DATE-MAX.",
+    "framework-version": 12,
+    "authors": [
+        {
+            "name": "Bhadhan Roy Joy",
+            "email": "joyroy@uab.edu",
+            "institution": "University of Alabama at Birmingham"
+        }
+    ],
+    "auth-ajax-actions": [
+        "instrument_structure_json"
+    ],
+    "compatibility": {
+        "redcap-version-min": "12.0.0",
+        "php-version-min": "7.2.15"
+    }
+}

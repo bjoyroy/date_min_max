@@ -7,6 +7,8 @@ $(document).ready(function () {
 
 	const query_params = window.location.search;
 
+	let date_field_values = {};
+
 	//console.log(query_params);
 
 	// ?pid=148&id=1716-1&page=arm_m&event_id=597&instance=1
@@ -29,6 +31,14 @@ $(document).ready(function () {
 	$('#form').on('mousemove', function() {
 		if (!attachedListeners) {
 			attachedListeners = true;
+			console.log('mouse moved!');
+			$(".hasDatepicker").each(function () {
+				var val = $(this).val();
+				var name = $(this).attr("name");
+				//console.log(name);
+				//console.log(val);
+				date_field_values[name] = val;
+			})
 		}
 	});
 
@@ -38,6 +48,13 @@ $(document).ready(function () {
 			return;
 		}
 		var dt_val = $(this).val();
+		var field_name = $(this).attr('name');
+
+		if(date_field_values[field_name] == dt_val){
+			return;
+		} else {
+			date_field_values[field_name] = dt_val;
+		}
 
 		if(dt_val == ''){
 			return;
@@ -61,7 +78,7 @@ $(document).ready(function () {
 			}
 		}
 
-		var field_name = $(this).attr('name');
+		
 		//console.log(field_name);
 
 		var payload = {

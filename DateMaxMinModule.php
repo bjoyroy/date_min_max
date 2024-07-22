@@ -62,8 +62,8 @@ abstract class Validate
 
 class DateMaxMinModule extends AbstractExternalModule
 {
-    public $minDateTag = "@DATE-MIN";
-    public $maxDateTag = "@DATE-MAX";
+    public $geDateTag = "@GREATER-EQUAL-DATE";
+    public $leDateTag = "@LESS-EQUAL-DATE";
 
     // Given $Proj->metadata[$field_name] return whether the field 
     // is a text field and has date validation applied
@@ -74,17 +74,17 @@ class DateMaxMinModule extends AbstractExternalModule
         return $isTextField && $hasDateValidation;
     }
 
-    function containsMinDateTag(?string $tags): bool
+    function containsGreaterEqualDateTag(?string $tags): bool
     {
-        if (isset($tags) && strpos($tags, $this->minDateTag) !== false){
+        if (isset($tags) && strpos($tags, $this->geDateTag) !== false){
             return true;
         }
         return false;
     }
 
-    function containsMaxDateTag(?string $tags): bool
+    function containsLessEqualDateTag(?string $tags): bool
     {
-        if (isset($tags) && strpos($tags, $this->maxDateTag) !== false){
+        if (isset($tags) && strpos($tags, $this->leDateTag) !== false){
                 return true; 
         }
         return false;
@@ -143,25 +143,18 @@ class DateMaxMinModule extends AbstractExternalModule
         }
     }
 
-    function redcap_data_entry_form ( int $project_id, string $record, string $instrument, int $event_id, int $group_id, int $repeat_instance){
-        //echo "Hello, world from data entry form!";
-        //
+    function redcap_data_entry_form ( int $project_id, string $record = NULL, string $instrument, int $event_id, int $group_id = NULL, int $repeat_instance = 1){
 
+        
         global $Proj;
 
         $instrument_fields = $Proj->forms[$instrument]['fields'];
 
-/*
-        echo "<pre>";
-        print_r($instrument_fields);
-        echo "</pre>";
 
-        echo "<pre>";
-        print_r($Proj->forms[$instrument]);
-        echo "</pre>";
-*/
+        $geFields = array();
+        $leFields = array();
 
-        $fields = array();
+
 
         foreach (array_keys($Proj->forms[$instrument]['fields']) as $field_name) {
             $field = $Proj->metadata[$field_name];
@@ -171,41 +164,74 @@ class DateMaxMinModule extends AbstractExternalModule
 
                 $action_tags = $field['misc'];
 
-                if($this->containsMinDateTag($action_tags)){
-                    $fields[$field_name] = $field;
-                } else if($this->containsMaxDateTag($action_tags)){
-                    $fields[$field_name] = $field;
+                if($this->containsGreaterEqualDateTag($action_tags)){
+                    $geFields[$field_name] = $field;
+                } 
+
+                if($this->containsLessEqualDateTag($action_tags)){
+                    $leFields[$field_name] = $field;
                 }
                 
             }
         }
 
-        echo "<pre>";
-        print_r($fields);
-        echo "</pre>";
+        //echo "HI there!";
+
+        $ge_date = $this->getMinMaxDate($geFields, $this->geDateTag, $record, $event_id, $repeat_instance, $instrument);
+        $le_date = $this->getMinMaxDate($leFields, $this->leDateTag, $record, $event_id, $repeat_instance, $instrument);
+
+        echo "greater than equal date: " . $ge_date . "<br>";
+
+        echo "less than equal date: " . $le_date . "<br>";
+        
+
+
+    }
+
+    function getMinMaxDate($fields, $min_max_tag, $record, $event_id, $repeat_instance, $instrument){
+
+        $date_arr = array();
 
         foreach($fields as $key=>$arr){
-            echo "<pre>";
-            print_r($arr);
-            echo "</pre>";
             $action_tags = $arr['misc'];
-            //echo $action_tags;
-            $minDatePre = Form::getValueInQuotesActionTag($action_tags, $this->minDateTag);
-            $minDateValue = Piping::replaceVariablesInLabel($minDatePre, $record, $event_id,
+            $new_action_tags = str_replace("'' ", "", $action_tags); // @IF action tag may add '' to the action tags string
+            $geDatePre = Form::getValueInQuotesActionTag($new_action_tags, $this->geDateTag);
+            //$getDatePre = Form::getValueInParenthesesActionTag($action_tags, $this->geDateTag);
+
+            $geDatePre = preg_replace('/\s+/', '', $geDatePre);
+
+            $all_date_fieds = explode(",", $geDatePre);
+
+
+
+            foreach ($all_date_fieds as $date_field) {
+                //echo $date_field . "<br>";
+                $ge_date = Piping::replaceVariablesInLabel($date_field, $record, $event_id,
                                     $repeat_instance, array(), false, null, false, "", 1, false, false, $instrument, null, true);
-            echo "Min Date: " . $minDateValue;
+
+                //echo $ge_date . "<br>";
+
+                if ($ge_date !== ''){
+                    $date_arr[] = $ge_date;
+                }
+            }
+      
         }
-/*
-        foreach($fields as $field_name => $arr){
-            $action_tags = $arr['misc'];
-            echo $action_tags";
-            //$min_tag_val = Form::getValueInQuotesActionTag($action_tags, $this->minDateTag);
-            //echo $min_tag_val;
-            //echo "<br>";
-        }
-*/
 
 
+
+
+        if(count($date_arr) == 0){
+            return "";
+        }
+
+        if($min_max_tag === $this->geDateTag){
+            return max($date_arr);
+        }
+
+        if($min_max_tag === $this->leDateTag){
+            return min($date_arr);
+        }
     }
 
     function redcap_module_ajax($action, $payload, $project_id, $record, $instrument, $event_id, $repeat_instance, $survey_hash, $response_id, $survey_queue_hash, $page, $page_full, $user_id, $group_id){

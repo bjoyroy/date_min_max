@@ -5,6 +5,7 @@ namespace UAB\DateMaxMinModule;
 use ExternalModules\AbstractExternalModule;
 use Form;
 use Piping;
+use DateTime;
 
 abstract class Page
 {
@@ -145,7 +146,7 @@ class DateMaxMinModule extends AbstractExternalModule
 
     function redcap_data_entry_form ( int $project_id, string $record = NULL, string $instrument, int $event_id, int $group_id = NULL, int $repeat_instance = 1){
 
-        
+        /*
         global $Proj;
 
         $instrument_fields = $Proj->forms[$instrument]['fields'];
@@ -183,40 +184,43 @@ class DateMaxMinModule extends AbstractExternalModule
         echo "greater than equal date: " . $ge_date . "<br>";
 
         echo "less than equal date: " . $le_date . "<br>";
+        */
         
 
 
     }
 
-    function getMinMaxDate($fields, $min_max_tag, $record, $event_id, $repeat_instance, $instrument){
+
+
+    function getMinMaxDate($field_arr, $min_max_tag, $record, $event_id, $repeat_instance, $instrument){
 
         $date_arr = array();
 
-        foreach($fields as $key=>$arr){
-            $action_tags = $arr['misc'];
-            $new_action_tags = str_replace("'' ", "", $action_tags); // @IF action tag may add '' to the action tags string
-            $geDatePre = Form::getValueInQuotesActionTag($new_action_tags, $this->geDateTag);
-            //$getDatePre = Form::getValueInParenthesesActionTag($action_tags, $this->geDateTag);
 
-            $geDatePre = preg_replace('/\s+/', '', $geDatePre);
+        $action_tags = $field_arr['misc'];
+        $new_action_tags = str_replace("'' ", "", $action_tags); // @IF action tag may add '' to the action tags string
+        $date_pre = Form::getValueInQuotesActionTag($new_action_tags, $min_max_tag);
+        //$getDatePre = Form::getValueInParenthesesActionTag($action_tags, $this->geDateTag);
 
-            $all_date_fieds = explode(",", $geDatePre);
+        $date_pre = preg_replace('/\s+/', '', $date_pre);
+
+        $all_date_fieds = explode(",", $date_pre);
 
 
 
-            foreach ($all_date_fieds as $date_field) {
-                //echo $date_field . "<br>";
-                $ge_date = Piping::replaceVariablesInLabel($date_field, $record, $event_id,
-                                    $repeat_instance, array(), false, null, false, "", 1, false, false, $instrument, null, true);
+        foreach ($all_date_fieds as $date_field) {
+            //echo $date_field . "<br>";
+            $dt = Piping::replaceVariablesInLabel($date_field, $record, $event_id,
+                $repeat_instance, array(), false, null, false, "", 1, false, false, $instrument, null, true);
 
-                //echo $ge_date . "<br>";
+            //echo $ge_date . "<br>";
 
-                if ($ge_date !== ''){
-                    $date_arr[] = $ge_date;
-                }
+            if ($dt !== ''){
+                $date_arr[] = $dt;
             }
-      
         }
+      
+        
 
 
 
@@ -256,8 +260,74 @@ class DateMaxMinModule extends AbstractExternalModule
 
             return json_encode($fields, JSON_FORCE_OBJECT);
             
+        }
+
+        if($action == "min_max_date_validation"){
+
+            global $Proj;
+            $field_name = $payload['field_name'];
+
+            $entered_dt_str = $payload['entered_date'];
+
+            $entered_dt = DateTime::createFromFormat('m-d-Y', $entered_dt_str)->format('Y-m-d');
+;
+            $field = $Proj->metadata[$field_name];
+
+            $ge_date = '';
+            $le_date = '';
+
+            $action_tags = $field['misc'];
+
+            $record_id = $payload['record'];
+
+            if($this->containsGreaterEqualDateTag($action_tags)){
+                    //$geFields[$field_name] = $field;
+                $ge_date = $this->getMinMaxDate($field, $this->geDateTag, $record_id, $event_id, $repeat_instance, $instrument);
+            } 
+
+            if($this->containsLessEqualDateTag($action_tags)){
+                    //$leFields[$field_name] = $field;
+                $le_date = $this->getMinMaxDate($field, $this->leDateTag, $record_id, $event_id, $repeat_instance, $instrument);
+            }
+/*
+            if($this->isDateTypeField($field)){
+
+                $action_tags = $field['misc'];
+
+                if($this->containsGreaterEqualDateTag($action_tags)){
+                    //$geFields[$field_name] = $field;
+                    $ge_date = $this->getMinMaxDate($field, $this->geDateTag, $record, $event_id, $repeat_instance, $instrument);
+                } 
+
+                if($this->containsLessEqualDateTag($action_tags)){
+                    //$leFields[$field_name] = $field;
+                    $le_date = $this->getMinMaxDate($field, $this->leDateTag, $record, $event_id, $repeat_instance, $instrument);
+                }
+                
+            }
+*/
+            $message = "";
+
+            if($ge_date != '' && $entered_dt <= $ge_date){
+                $ge_date_mdy = DateTime::createFromFormat('Y-m-d', $ge_date)->format('m-d-Y');
+                $message .= "Date " . $entered_dt_str . " must be a later date after " . $ge_date_mdy . ".<br>";
+            } 
+
+            if($le_date != '' && $entered_dt >= $le_date ){
+                $le_date_mdy = DateTime::createFromFormat('Y-m-d', $le_date)->format('m-d-Y');
+                $message .= "Date " . $entered_dt_str . " must be a past date of " . $le_date_mdy . ".<br>";
+            }
+            $arr['ge_date'] = $ge_date;
+            $arr['le_date'] = $le_date;
+            $arr['record'] = $payload['record'];
+            $arr['event_id'] = $event_id;
+            $arr['repeat_instance'] = $repeat_instance;
+            $arr['instrument'] = $instrument;
+            $arr['returned_dt'] = $entered_dt;
+            $arr["message"] = $message;
 
 
+            return json_encode($arr);
         }
     }
 }

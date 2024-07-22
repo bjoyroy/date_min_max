@@ -11,7 +11,8 @@
         }
     ],
     "auth-ajax-actions": [
-        "instrument_structure_json"
+        "instrument_structure_json",
+        "min_max_date_validation"
     ],
     "compatibility": {
         "redcap-version-min": "12.0.0",
